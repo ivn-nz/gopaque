@@ -3,8 +3,8 @@ package gopaque_test
 import (
 	"testing"
 
-	"github.com/cretz/gopaque/gopaque"
-	"go.dedis.ch/kyber"
+	"github.com/ivn-nz/gopaque/gopaque"
+	"go.dedis.ch/kyber/v3"
 )
 
 func assert(t *testing.T, v bool, format string, args ...interface{}) {

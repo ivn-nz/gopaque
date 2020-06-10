@@ -1,7 +1,7 @@
 package gopaque_test
 
 import (
-	"github.com/cretz/gopaque/gopaque"
+	"github.com/ivn-nz/gopaque/gopaque"
 )
 
 // This simple example doesn't marshal the messages, it just sends them.

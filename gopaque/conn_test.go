@@ -6,8 +6,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/cretz/gopaque/gopaque"
-	"go.dedis.ch/kyber"
+	"github.com/ivn-nz/gopaque/gopaque"
+	"go.dedis.ch/kyber/v3"
 )
 
 // This example is a more complex example showing marshalling and using separate
