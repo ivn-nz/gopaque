@@ -85,6 +85,13 @@ type UserAuthFinish struct {
 	ServerPublicKey kyber.Point
 }
 
+// UserAuthFinishExt is the partial information of user.
+// It has the generated random password from the OPRF
+type UserAuthFinishExt struct {
+	RWu       []byte
+	UserAuthF UserAuthFinish
+}
+
 // UserAuthComplete is sent back to the server to complete auth if needed. It
 // implements Marshaler.
 type UserAuthComplete struct {
@@ -133,6 +140,49 @@ func (u *UserAuth) Complete(s *ServerAuthComplete) (*UserAuthFinish, *UserAuthCo
 	if u.embeddedKeyExchange != nil {
 		complete = &UserAuthComplete{}
 		info := &KeyExchangeInfo{u.userID, finish.UserPrivateKey, finish.ServerPublicKey}
+		if len(s.EmbeddedKeyExchangeMessage2) == 0 {
+			return nil, nil, fmt.Errorf("Missing expected exchange message 2")
+		} else if ke2, err := u.embeddedKeyExchange.NewKeyExchangeMessage(2); err != nil {
+			return nil, nil, err
+		} else if err = ke2.FromBytes(u.crypto, s.EmbeddedKeyExchangeMessage2); err != nil {
+			return nil, nil, err
+		} else if ke3, err := u.embeddedKeyExchange.UserKeyExchange3(ke2, info); err != nil {
+			return nil, nil, err
+		} else if ke3 == nil {
+			// This is only a 2-step exchange
+			complete = nil
+		} else if complete.EmbeddedKeyExchangeMessage3, err = ke3.ToBytes(); err != nil {
+			return nil, nil, err
+		}
+	}
+	return finish, complete, nil
+}
+
+// CompleteExt behaves exactlly the same way Completes does, but it adds an extra variable, random user's password
+func (u *UserAuth) CompleteExt(s *ServerAuthComplete) (*UserAuthFinishExt, *UserAuthComplete, error) {
+	// Decode and build finish info
+	rwdU := OPRFUserStep3(u.crypto, u.password, u.r, s.V, s.Beta)
+	decKey := u.crypto.NewKeyFromReader(bytes.NewReader(rwdU))
+	finish := &UserAuthFinishExt{}
+	finish.UserAuthF.ServerPublicKey = u.crypto.Point()
+	finish.UserAuthF.UserPrivateKey = u.crypto.Scalar()
+	finish.RWu = rwdU
+
+	privKeyLen := u.crypto.ScalarLen()
+	if plain, err := u.crypto.AuthDecrypt(decKey, s.EnvU); err != nil {
+		return nil, nil, err
+	} else if err = finish.UserAuthF.UserPrivateKey.UnmarshalBinary(plain[:privKeyLen]); err != nil {
+		return nil, nil, err
+	} else if err = finish.UserAuthF.ServerPublicKey.UnmarshalBinary(plain[privKeyLen:]); err != nil {
+		return nil, nil, err
+	} else if !finish.UserAuthF.ServerPublicKey.Equal(s.ServerPublicKey) {
+		return nil, nil, fmt.Errorf("Server public key mismatch")
+	}
+	// If there is an embedded key exchange, run it
+	var complete *UserAuthComplete
+	if u.embeddedKeyExchange != nil {
+		complete = &UserAuthComplete{}
+		info := &KeyExchangeInfo{u.userID, finish.UserAuthF.UserPrivateKey, finish.UserAuthF.ServerPublicKey}
 		if len(s.EmbeddedKeyExchangeMessage2) == 0 {
 			return nil, nil, fmt.Errorf("Missing expected exchange message 2")
 		} else if ke2, err := u.embeddedKeyExchange.NewKeyExchangeMessage(2); err != nil {

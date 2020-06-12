@@ -1,6 +1,9 @@
 package gopaque_test
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/ivn-nz/gopaque/gopaque"
 )
 
@@ -30,14 +33,18 @@ func Example_simple() {
 	serverAuthComplete, err := serverAuth.Complete(userAuthInit, serverRegComplete)
 	panicIfErr(err)
 	userAuthFinish, userAuthComplete, err := userAuth.Complete(serverAuthComplete)
+	//userAuthFinishExt, _, err := userAuth.CompleteExt(serverAuthComplete)
 	panicIfErr(err)
 	err = serverAuth.Finish(userAuthComplete)
 	panicIfErr(err)
-
+	a, _ := userReg.PrivateKey().MarshalBinary()
+	b, _ := userAuthFinish.UserPrivateKey.MarshalBinary()
 	// Might as well check that the user key is the same as orig
-	if !userReg.PrivateKey().Equal(userAuthFinish.UserPrivateKey) {
+	if bytes.Compare(a, b) == 0 { // Equal
+		fmt.Println("Key ok")
+	} else {
 		panic("Key mismatch")
 	}
 
-	// Output:
+	// Output: Key ok
 }
