@@ -76,6 +76,13 @@ type UserRegisterComplete struct {
 	EnvU          []byte
 }
 
+// UserRegisterCompleteExt is the set of data to pass to the server after calling
+// Complete. It implements Marshaler.
+type UserRegisterCompleteExt struct {
+	UserRegisterComp UserRegisterComplete
+	RWu              []byte
+}
+
 // ToBytes implements Marshaler.ToBytes.
 func (u *UserRegisterComplete) ToBytes() ([]byte, error) {
 	b := newBuf(nil)
@@ -110,6 +117,28 @@ func (u *UserRegister) Complete(s *ServerRegisterInit) *UserRegisterComplete {
 		panic(err)
 	}
 	return &UserRegisterComplete{UserPublicKey: pubKey(u.crypto, u.privateKey), EnvU: envU}
+}
+
+// CompleteExt behaves the same way Complete does. It just adds random user's password support.
+func (u *UserRegister) CompleteExt(s *ServerRegisterInit) *UserRegisterCompleteExt {
+	if len(u.password) == 0 {
+		panic("No password, was init run?")
+	}
+	// Finish up OPRF
+	rwdU := OPRFUserStep3(u.crypto, u.password, u.r, s.V, s.Beta)
+	// Generate a key pair from rwdU seed
+	authEncKey := u.crypto.NewKeyFromReader(bytes.NewReader(rwdU))
+	// Generate the envelope by encrypting my pair and server pub w/ the OPRF result as the key
+	plain := append(toBytes(u.privateKey), toBytes(s.ServerPublicKey)...)
+	envU, err := u.crypto.AuthEncrypt(authEncKey, plain)
+	if err != nil {
+		panic(err)
+	}
+	userAuthCom := &UserRegisterCompleteExt{}
+	userAuthCom.UserRegisterComp.UserPublicKey = pubKey(u.crypto, u.privateKey)
+	userAuthCom.UserRegisterComp.EnvU = envU
+	userAuthCom.RWu = rwdU
+	return userAuthCom
 }
 
 // ServerRegister is the server-side session for registration with a user. This
