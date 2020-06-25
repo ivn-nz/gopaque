@@ -14,7 +14,7 @@ func Example_simple() {
 	userReg := gopaque.NewUserRegister(crypto, []byte("user foo"), nil)
 	serverReg := gopaque.NewServerRegister(crypto, crypto.NewKey(nil))
 	// Do the registration steps
-	userRegInit := userReg.Init([]byte("password foo"))
+	userRegInit := userReg.Init([]byte("test"))
 	serverRegInit := serverReg.Init(userRegInit)
 	userRegComplete := userReg.Complete(serverRegInit)
 	serverRegComplete := serverReg.Complete(userRegComplete)
@@ -27,7 +27,7 @@ func Example_simple() {
 	userAuth := gopaque.NewUserAuth(crypto, []byte("user foo"), gopaque.NewKeyExchangeSigma(crypto))
 	serverAuth := gopaque.NewServerAuth(crypto, gopaque.NewKeyExchangeSigma(crypto))
 	// Do the auth
-	userAuthInit, err := userAuth.Init([]byte("password foo"))
+	userAuthInit, err := userAuth.Init([]byte("test"))
 	panicIfErr(err)
 	// XXX: Here is where serverRegComplete would be looked up by userAuthInit.UserID.
 	serverAuthComplete, err := serverAuth.Complete(userAuthInit, serverRegComplete)
